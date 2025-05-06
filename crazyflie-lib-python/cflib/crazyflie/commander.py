@@ -112,6 +112,7 @@ class Commander():
         """
         Send STOP setpoing, stopping the motors and (potentially) falling.
         """
+        print('Sending stop setpoint')
         pk = CRTPPacket()
         pk.port = CRTPPort.COMMANDER_GENERIC
         pk.data = struct.pack('<B', TYPE_STOP)
