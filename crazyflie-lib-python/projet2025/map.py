@@ -10,6 +10,8 @@ import numpy as np
 # import matplotlib.pyplot as plt
 import cv2
 import heapq
+from scipy.interpolate import splprep, splev
+
 
 # Constants
 min_x, max_x = 0, 5.0 # meter
@@ -24,9 +26,7 @@ obstacle_augmentation = 2   # margin around obstacles
 class OccupancyGrid:
     def __init__(self):
         # Initialize the occupancy grid
-        self.map = np.zeros((int((max_x-min_x)/res_pos), int((max_y-min_y)/res_pos))) # 0 = unknown, 1 = free, -1 = occupied
-
-        self.grid = np.zeros((100, 100), dtype=np.uint8)
+        self.grid = np.zeros((150, 150), dtype=np.uint8)
         # Initialize the waypoints
         #    gates             x  y  z theta ...?
         self.gate1 = np.array([0, 0, 0, 0, 0])
@@ -40,44 +40,7 @@ class OccupancyGrid:
 
         # Path planning
         self.optimal_path = None
-
-    def display_map(self):
-        # Display the occupancy grid using OpenCV
-        # cv2.imshow('Occupancy Grid', self.grid)
-        # cv2.waitKey(1)
-        """
-        Displays the occupancy grid map with the drone position and the planned path
-        """
-
-        zoom = 20 * self.map.shape[0]
-        map_display = np.transpose(self.map)
-        map_display = (map_display+1)/2
-        width, height = np.shape(map_display)
-
-        map_display = cv2.resize(map_display,(zoom*height, zoom*width), interpolation=cv2.INTER_NEAREST) # zoom for better visualization
-        map_display = cv2.cvtColor(map_display.astype('float32'), cv2.COLOR_GRAY2BGR) # convert to color image
-    
-        # # Mark drone position in blue
-        # if sensor_data is not None :
-        #     pos_x = sensor_data['x_global']
-        #     pos_y = sensor_data['y_global']
-        #     idx_x, idx_y = self.cell_from_pos([pos_x, pos_y], display = True)
-        #     cv2.circle(map_display, (zoom*idx_x, zoom*idx_y), 2,(255,0,0),-1)
-
-        # Mark path
-        if self.optimal_path is not None:
-            # path in green
-            for cell in self.optimal_path :
-                cv2.circle(map_display, zoom*tuple(cell), 1,(0,255,0),-1)
-            # target in red
-            cv2.circle(map_display, zoom*tuple(self.optimal_cell_path[-1]), 2,(0,0, 255),-1)
-
-
-        # flip the image to have the origin at the bottom left
-        map_display = np.flip(map_display, axis= 0).astype(float)
-        cv2.imshow('Cell map and planned path', map_display)
-        cv2.waitKey(1)
-
+        
     def set_gates(self, start, end, gate1, gate2, gate3, gate4):
         # Set the gates in the occupancy grid
         self.gate1 = gate1
@@ -88,29 +51,273 @@ class OccupancyGrid:
         self.start = start
         self.end = end
 
-    def path_planning(self):
-        # Run the A* algorithm to find the optimal path from start to end
+
+############################################
+### === Path planning & A* Algorithm === ###
+############################################
+    def reconstruct_path(self, came_from, current):
+        path = [current]
+        while tuple(current) in came_from:
+            current = came_from[tuple(current)]
+            path.append(current)
+        path.reverse()
+        self.optimal_path = path
+        return path
+    
+    def plan_through_gates(self):
+        # Ordered list of waypoints (x, y, z, theta, ...)
+        waypoints = [self.start, self.gate1, self.gate2, self.gate3, self.gate4, self.end]
+        full_path = []
+
+        for i in range(len(waypoints) - 1):
+            segment_start = waypoints[i]
+            segment_end = waypoints[i + 1]
+
+            path_segment = self.astar(segment_start, segment_end)
+            if path_segment is None:
+                print(f"Failed to find path from waypoint {i} to {i+1}")
+                return None
+
+            if i > 0:
+                # Remove overlap
+                path_segment = path_segment[1:]
+
+            densified_segment = self.densify_path(path_segment, spacing=1.0)
+            full_path.extend(path_segment)
+
+        self.optimal_path = self.smooth_path(full_path)
+        return self.optimal_path
+    
+    def densify_path(self, path, spacing=1.0):
+        if len(path) < 2:
+            return path
+
+        densified = []
+        for i in range(len(path) - 1):
+            x1, y1, *rest1 = path[i]
+            x2, y2, *rest2 = path[i + 1]
+            dist = np.hypot(x2 - x1, y2 - y1)
+            num_points = max(int(dist / spacing), 1)
+
+            for j in range(num_points):
+                t = j / num_points
+                x = x1 + t * (x2 - x1)
+                y = y1 + t * (y2 - y1)
+                densified.append((x, y))
+
+        densified.append(path[-1])  # include the final point
+        return densified
+
+    # def path_planning(self):
+    #     checkpoints = [self.start, self.gate1, self.gate2, self.gate3, self.gate4, self.end]
+    #     full_path = []
+
+    #     for i in range(len(checkpoints) - 1):
+    #         start = checkpoints[i]
+    #         end = checkpoints[i + 1]
+
+    #         segment_path = self.astar(tuple(start[:2]), tuple(end[:2]))
+    #         if segment_path is None:
+    #             print(f"Path segment from {start} to {end} could not be found.")
+    #             return None
+    #         full_path += segment_path[:-1]  # Avoid duplicate points at junctions
+
+    #     full_path.append(tuple(self.end[:2]))
+    #     self.optimal_path = full_path
+    #     return full_path
+    
+    def astar(self, start, goal):
         open_set = []
-        heapq.heappush(open_set, (0, self.start))
+        heapq.heappush(open_set, (0, start))
         came_from = {}
-        g_score = {tuple(self.start): 0}
-        f_score = {tuple(self.start): self.heuristic(self.start, self.end)}
+        g_score = {tuple(start): 0}
+        f_score = {tuple(start): self.heuristic(start, goal)}
 
         while open_set:
             current = heapq.heappop(open_set)[1]
-            if np.array_equal(current, self.end):
+
+            if np.array_equal(current[:2], goal[:2]):
                 return self.reconstruct_path(came_from, current)
 
+            # if current == goal:
+            #     return self.reconstruct_path(came_from, current)
+
             for neighbor in self.get_neighbors(current):
-                tentative_g_score = g_score[tuple(current)] + 1
-                if tuple(neighbor) not in g_score or tentative_g_score < g_score[tuple(neighbor)]:
+                tentative_g = g_score[tuple(current)] + 1
+                if tuple(neighbor) not in g_score or tentative_g < g_score[tuple(neighbor)]:
                     came_from[tuple(neighbor)] = current
-                    g_score[tuple(neighbor)] = tentative_g_score
-                    f_score[tuple(neighbor)] = tentative_g_score + self.heuristic(neighbor, self.end)
+                    g_score[tuple(neighbor)] = tentative_g
+                    f_score[tuple(neighbor)] = tentative_g + self.heuristic(neighbor, goal)
                     if tuple(neighbor) not in [i[1] for i in open_set]:
                         heapq.heappush(open_set, (f_score[tuple(neighbor)], neighbor))
-
         return None
     
+    def get_neighbors(self, node):
+        x, y = int(node[0]), int(node[1])
+        neighbors = []
+
+        # 8 possible directions (4 straight + 4 diagonal)
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1),   # Straight directions
+                    (-1, -1), (1, -1), (-1, 1), (1, 1)]  # Diagonal directions
+        
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < self.grid.shape[1] and 0 <= ny < self.grid.shape[0]:
+                if self.grid[ny, nx] != 255:  # Assuming 255 is obstacle
+                    neighbors.append((nx, ny))
+        return neighbors
+
+    def heuristic(self, a, b):
+        return (abs(a[0] - b[0]) + abs(a[1] - b[1]))  # Manhattan distance
+
+    def smooth_path(self, path, smoothing_factor=0):
+        # print("len(path):", len(path))
+        if len(path) < 3:
+            return path  # Too short to smooth
+
+        x = [p[0] for p in path]
+        y = [p[1] for p in path]
+
+        # Parametric spline
+        # tck, u = splprep([x, y], s=smoothing_factor)
+        # Parametric spline
+        try:
+            tck, u = splprep([x, y], s=smoothing_factor)
+        except ValueError as e:
+            print(f"Error in smoothing the path: {e}")
+            return path  # Return the original path in case of error
+        
+        unew = np.linspace(0, 1.0, num=10 * len(path))
+        out = splev(unew, tck)
+
+        smoothed_path = list(zip(np.round(out[0]).astype(int), np.round(out[1]).astype(int)))
+        return smoothed_path
+
+
+    # def path_planning(self):
+    #     # Run the A* algorithm to find the optimal path from start to end
+    #     open_set = []
+    #     heapq.heappush(open_set, (0, self.start))
+    #     came_from = {}
+    #     g_score = {tuple(self.start): 0}
+    #     f_score = {tuple(self.start): self.heuristic(self.start, self.end)}
+
+    #     while open_set:
+    #         current = heapq.heappop(open_set)[1]
+    #         if np.array_equal(current, self.end):
+    #             return self.reconstruct_path(came_from, current)
+
+    #         for neighbor in self.get_neighbors(current):
+    #             tentative_g_score = g_score[tuple(current)] + 1
+    #             if tuple(neighbor) not in g_score or tentative_g_score < g_score[tuple(neighbor)]:
+    #                 came_from[tuple(neighbor)] = current
+    #                 g_score[tuple(neighbor)] = tentative_g_score
+    #                 f_score[tuple(neighbor)] = tentative_g_score + self.heuristic(neighbor, self.end)
+    #                 if tuple(neighbor) not in [i[1] for i in open_set]:
+    #                     heapq.heappush(open_set, (f_score[tuple(neighbor)], neighbor))
+
+    #     return None
+
+###########################
+### === Map display === ###
+###########################
+    def draw_rotated_rectangle(self, img, center, angle_deg, size, color, label=None):
+        cx, cy = center
+        w, h = size
+        angle_rad = np.deg2rad(angle_deg)
+
+        # Define the rectangle corners relative to the center
+        rect = np.array([
+            [-w/2, -h/2],
+            [ w/2, -h/2],
+            [ w/2,  h/2],
+            [-w/2,  h/2]
+        ])
+
+        # Rotation matrix
+        rotation = np.array([
+            [np.cos(angle_rad), -np.sin(angle_rad)],
+            [np.sin(angle_rad),  np.cos(angle_rad)]
+        ])
+
+        # Rotate and translate corners
+        rotated_rect = np.dot(rect, rotation) + np.array([cx, cy])
+        pts = rotated_rect.astype(np.int32).reshape((-1, 1, 2))
+
+        # Draw the rectangle
+        cv2.polylines(img, [pts], isClosed=True, color=color, thickness=1)
+
+        # Optional: draw label
+        if label:
+            cv2.putText(img, label, (int(cx + 5), int(cy - 5)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+
     
-    
+    def display_map(self):
+        # Display the occupancy grid using OpenCV
+        # Convert to color for visualization (grayscale to BGR)
+        color_grid = cv2.cvtColor(self.grid, cv2.COLOR_GRAY2BGR)
+
+        # Draw gates with different colors
+        gates = {
+            "G1": (self.gate1, (0, 0, 255)),   # Red
+            "G2": (self.gate2, (0, 255, 0)),   # Green
+            "G3": (self.gate3, (255, 0, 0)),   # Blue
+            "G4": (self.gate4, (0, 255, 255))  # Yellow
+        }
+        for label, (gate, color) in gates.items():
+            x, y = int(gate[0]), int(gate[1])
+            theta = gate[3]  # heading in degrees
+            self.draw_rotated_rectangle(color_grid, (x, y), theta, size=(6, 3), color=color, label=label)
+
+        # for label, (pos, color) in gates.items():
+        #     x, y = int(pos[0]), int(pos[1])
+        #     cv2.circle(color_grid, (x, y), 3, color, -1)
+        #     cv2.putText(color_grid, label, (x+5, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+
+        # Draw start and end points
+        sx, sy = int(self.start[0]), int(self.start[1])
+        ex, ey = int(self.end[0]), int(self.end[1])
+        cv2.circle(color_grid, (sx, sy), 4, (255, 255, 255), -1)
+        cv2.putText(color_grid, 'Start', (sx+5, sy-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+
+        cv2.circle(color_grid, (ex, ey), 4, (0, 165, 255), -1)  # Orange
+        cv2.putText(color_grid, 'End', (ex+5, ey-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 165, 255), 1)
+
+        if self.optimal_path:
+            # for i in range(1, len(self.optimal_path)):
+            #     pt1 = (int(self.optimal_path[i - 1][0]), int(self.optimal_path[i - 1][1]))
+            #     pt2 = (int(self.optimal_path[i][0]), int(self.optimal_path[i][1]))
+
+            #     cv2.line(color_grid, pt1, pt2, (255, 255, 255), 1)
+            densified_points = self.densify_path(self.optimal_path, spacing=1.0)
+            for point in densified_points:
+                x, y = int(round(point[0])), int(round(point[1]))
+                # Draw the densified point as a small dot
+                cv2.circle(color_grid, (x, y), 1, (0, 255, 255), -1)  # Yellow dots
+            
+            # Smooth the path before drawing it
+            smoothed_path = self.smooth_path(self.optimal_path, smoothing_factor=0)
+            for i in range(len(smoothed_path) - 1):
+                pt1 = (int(round(smoothed_path[i][0])), int(round(smoothed_path[i][1])))
+                pt2 = (int(round(smoothed_path[i + 1][0])), int(round(smoothed_path[i + 1][1])))
+                cv2.line(color_grid, pt1, pt2, (255, 255, 255), 1)
+
+
+            # for i in range(len(self.optimal_path) - 1):
+            #     # pt1 = tuple(self.optimal_path[i])
+            #     # pt2 = tuple(self.optimal_path[i + 1])
+            #     pt1 = (int(round(self.optimal_path[i][0])), int(round(self.optimal_path[i][1])))
+            #     pt2 = (int(round(self.optimal_path[i + 1][0])), int(round(self.optimal_path[i + 1][1])))
+
+            #     cv2.line(color_grid, pt1, pt2, (255, 255, 255), 1)
+
+        # Display the map
+        # Resize for better visibility
+        scale = 5  # Increase this for a bigger display
+        resized_grid = cv2.resize(color_grid, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
+        cv2.imshow('Occupancy Grid with Gates', resized_grid)
+        cv2.waitKey(1)
+
+        # cv2.imshow('Occupancy Grid', self.grid)
+        # cv2.waitKey(1)
