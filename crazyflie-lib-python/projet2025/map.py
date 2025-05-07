@@ -85,7 +85,7 @@ class OccupancyGrid:
             densified_segment = self.densify_path(path_segment, spacing=1.0)
             full_path.extend(path_segment)
 
-        self.optimal_path = self.smooth_path(full_path)
+        self.optimal_path = self.smooth_path(full_path, smoothing_factor=0)
         return self.optimal_path
     
     def densify_path(self, path, spacing=1.0):
@@ -173,25 +173,50 @@ class OccupancyGrid:
     def smooth_path(self, path, smoothing_factor=0):
         # print("len(path):", len(path))
         if len(path) < 3:
+            print("Path too short to smooth")
             return path  # Too short to smooth
 
         x = [p[0] for p in path]
         y = [p[1] for p in path]
 
+        try:
+        # Parametric spline
+            tck, u = splprep([x, y], s=smoothing_factor)
+
+            # Generate a smoother path using spline interpolation
+            unew = np.linspace(0, 1.0, num=10 * len(path))
+            out = splev(unew, tck)
+
+            # Print the raw smoothed coordinates before rounding
+            # print(f"Raw smoothed coordinates (x): {out[0]}")
+            # print(f"Raw smoothed coordinates (y): {out[1]}")
+
+
+            # Create the smoothed path
+            smoothed_path = list(zip(np.round(out[0]).astype(int), np.round(out[1]).astype(int)))
+            # print(f"Smoothed path (rounded): {smoothed_path}")
+            return smoothed_path
+
+        except Exception as e:
+            # print(f"Error in smoothing the path: {e}")
+            # print("x:", x)
+            # print("y:", y)
+            return path  # Return original path in case of error
+
         # Parametric spline
         # tck, u = splprep([x, y], s=smoothing_factor)
         # Parametric spline
-        try:
-            tck, u = splprep([x, y], s=smoothing_factor)
-        except ValueError as e:
-            print(f"Error in smoothing the path: {e}")
-            return path  # Return the original path in case of error
+        # # try:
+        # #     tck, u = splprep([x, y], s=smoothing_factor)
+        # # except ValueError as e:
+        # #     print(f"Error in smoothing the path: {e}")
+        # #     return path  # Return the original path in case of error
         
-        unew = np.linspace(0, 1.0, num=10 * len(path))
-        out = splev(unew, tck)
+        # # unew = np.linspace(0, 1.0, num=10 * len(path))
+        # # out = splev(unew, tck)
 
-        smoothed_path = list(zip(np.round(out[0]).astype(int), np.round(out[1]).astype(int)))
-        return smoothed_path
+        # # smoothed_path = list(zip(np.round(out[0]).astype(int), np.round(out[1]).astype(int)))
+        # # return smoothed_path
 
 
     # def path_planning(self):
