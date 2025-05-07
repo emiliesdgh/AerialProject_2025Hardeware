@@ -11,7 +11,8 @@ import numpy as np
 import cv2
 import heapq
 from scipy.interpolate import splprep, splev
-
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 # Constants
 min_x, max_x = 0, 5.0 # meter
@@ -26,7 +27,7 @@ obstacle_augmentation = 2   # margin around obstacles
 class OccupancyGrid:
     def __init__(self):
         # Initialize the occupancy grid
-        self.grid = np.zeros((150, 150), dtype=np.uint8)
+        self.grid = np.zeros((2, 150, 150), dtype=np.uint8)
         # Initialize the waypoints
         #    gates             x  y  z theta ...?
         self.gate1 = np.array([0, 0, 0, 0, 0])
@@ -94,16 +95,18 @@ class OccupancyGrid:
 
         densified = []
         for i in range(len(path) - 1):
-            x1, y1, *rest1 = path[i]
-            x2, y2, *rest2 = path[i + 1]
-            dist = np.hypot(x2 - x1, y2 - y1)
+            x1, y1, z1, *rest1 = path[i]
+            x2, y2, z2, *rest2 = path[i + 1]
+            # dist = np.hypot(x2 - x1, y2 - y1) --> 2D
+            dist = np.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2) # 3D
             num_points = max(int(dist / spacing), 1)
 
             for j in range(num_points):
                 t = j / num_points
                 x = x1 + t * (x2 - x1)
                 y = y1 + t * (y2 - y1)
-                densified.append((x, y))
+                z = z1 + t * (z2 - z1)
+                densified.append((x, y, z))
 
         densified.append(path[-1])  # include the final point
         return densified
@@ -143,7 +146,8 @@ class OccupancyGrid:
             #     return self.reconstruct_path(came_from, current)
 
             for neighbor in self.get_neighbors(current):
-                tentative_g = g_score[tuple(current)] + 1
+                move_cost = np.linalg.norm(np.array(neighbor[:2])-np.array(current[:2]))
+                tentative_g = g_score[tuple(current)] + move_cost
                 if tuple(neighbor) not in g_score or tentative_g < g_score[tuple(neighbor)]:
                     came_from[tuple(neighbor)] = current
                     g_score[tuple(neighbor)] = tentative_g
@@ -153,22 +157,42 @@ class OccupancyGrid:
         return None
     
     def get_neighbors(self, node):
-        x, y = int(node[0]), int(node[1])
+        x, y, z = int(node[0]), int(node[1]), int(node[2])
         neighbors = []
 
-        # 8 possible directions (4 straight + 4 diagonal)
-        directions = [(-1, 0), (1, 0), (0, -1), (0, 1),   # Straight directions
-                    (-1, -1), (1, -1), (-1, 1), (1, 1)]  # Diagonal directions
-        
-        for dx, dy in directions:
-            nx, ny = x + dx, y + dy
-            if 0 <= nx < self.grid.shape[1] and 0 <= ny < self.grid.shape[0]:
-                if self.grid[ny, nx] != 255:  # Assuming 255 is obstacle
-                    neighbors.append((nx, ny))
+        ### in 3D ###
+        # 26 possible directions (6 straight + 18 diagonal, 3D)
+        directions = [(-1, 0, 0), (1, 0, 0), (0, -1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1),  # Straight directions
+                      (-1, -1, 0), (1, -1, 0), (-1, 1, 0), (1, 1, 0),  # Diagonal on xy-plane
+                      (-1, 0, -1), (1, 0, -1), (0, -1, -1), (0, 1, -1), (-1, -1, -1), (1, -1, -1),
+                      (-1, 1, -1), (1, 1, -1), (-1, 0, 1), (1, 0, 1), (0, -1, 1), (0, 1, 1),
+                      (-1, -1, 1), (1, -1, 1), (-1, 1, 1), (1, 1, 1)]  # Diagonal on z-axis
+
+        for dx, dy, dz in directions:
+            nx, ny, nz = x + dx, y + dy, z + dz
+            # if 0 <= nx < self.grid.shape[1] and 0 <= ny < self.grid.shape[0] and 0 <= nz < self.grid.shape[2]:    
+            if 0 <= nz < self.grid.shape[0] and 0 <= ny < self.grid.shape[1] and 0 <= nx < self.grid.shape[2]:
+
+                if self.grid[nz, ny, nx] != 255:  # Assuming 255 is obstacle
+                    neighbors.append((nx, ny, nz))
         return neighbors
 
+        ### in 2D ###
+        # # 8 possible directions (4 straight + 4 diagonal)
+        # directions = [(-1, 0), (1, 0), (0, -1), (0, 1),   # Straight directions
+        #             (-1, -1), (1, -1), (-1, 1), (1, 1)]  # Diagonal directions
+        
+        # for dx, dy in directions:
+        #     nx, ny = x + dx, y + dy
+        #     if 0 <= nx < self.grid.shape[1] and 0 <= ny < self.grid.shape[0]:
+        #         if self.grid[ny, nx] != 255:  # Assuming 255 is obstacle
+        #             neighbors.append((nx, ny))
+        # return neighbors
+
     def heuristic(self, a, b):
-        return (abs(a[0] - b[0]) + abs(a[1] - b[1]))  # Manhattan distance
+        # return (abs(a[0] - b[0]) + abs(a[1] - b[1]))  # Manhattan distance --> in 2D
+        return np.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2 + (a[2] - b[2])**2)  # Euclidean distance --> in 3D
+
 
     def smooth_path(self, path, smoothing_factor=0):
         # print("len(path):", len(path))
@@ -178,10 +202,11 @@ class OccupancyGrid:
 
         x = [p[0] for p in path]
         y = [p[1] for p in path]
+        z = [p[2] for p in path]
 
         try:
         # Parametric spline
-            tck, u = splprep([x, y], s=smoothing_factor)
+            tck, u = splprep([x, y, z], s=smoothing_factor)
 
             # Generate a smoother path using spline interpolation
             unew = np.linspace(0, 1.0, num=10 * len(path))
@@ -193,7 +218,7 @@ class OccupancyGrid:
 
 
             # Create the smoothed path
-            smoothed_path = list(zip(np.round(out[0]).astype(int), np.round(out[1]).astype(int)))
+            smoothed_path = list(zip(np.round(out[0]).astype(int), np.round(out[1]).astype(int), np.round(out[2]).astype(int)))
             # print(f"Smoothed path (rounded): {smoothed_path}")
             return smoothed_path
 
@@ -281,7 +306,8 @@ class OccupancyGrid:
     def display_map(self):
         # Display the occupancy grid using OpenCV
         # Convert to color for visualization (grayscale to BGR)
-        color_grid = cv2.cvtColor(self.grid, cv2.COLOR_GRAY2BGR)
+        slice_2d = self.grid[0]  # Use the first slice for 2D visualization
+        color_grid = cv2.cvtColor(slice_2d, cv2.COLOR_GRAY2BGR)
 
         # Draw gates with different colors
         gates = {
@@ -341,8 +367,42 @@ class OccupancyGrid:
         # Resize for better visibility
         scale = 5  # Increase this for a bigger display
         resized_grid = cv2.resize(color_grid, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
-        cv2.imshow('Occupancy Grid with Gates', resized_grid)
+        cv2.imshow('Occupancy Grid with Gates -- 2D slice (z=0)', resized_grid)
         cv2.waitKey(1)
 
         # cv2.imshow('Occupancy Grid', self.grid)
         # cv2.waitKey(1)
+
+    def display_3d_map(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        # Gate points
+        gates = {
+            "G1": self.gate1,  # [x, y, z, theta]
+            "G2": self.gate2,
+            "G3": self.gate3,
+            "G4": self.gate4
+        }
+        
+        for label, gate in gates.items():
+            x, y, z = gate[0], gate[1], gate[2]
+            ax.scatter(x, y, z, label=label)
+            ax.text(x, y, z, label, size=10, color='k')
+        
+        # Start and End points
+        ax.scatter(self.start[0], self.start[1], self.start[2], c='r', label='Start')
+        ax.scatter(self.end[0], self.end[1], self.end[2], c='g', label='End')
+
+        # Plot path (assuming self.path is a list of [x, y, z])
+    # if hasattr(self, 'path'):
+        xs = [p[0] for p in self.optimal_path]
+        ys = [p[1] for p in self.optimal_path]
+        zs = [p[2] for p in self.optimal_path]
+        ax.plot(xs, ys, zs, c='blue', label='Path')
+    
+    
+        # Display the 3D plot
+        plt.title('3D Occupancy Grid with Gates')
+        plt.legend(loc='upper left', fontsize='small', frameon=True)
+        plt.show()
