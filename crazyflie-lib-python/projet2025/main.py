@@ -23,11 +23,12 @@ if __name__ == "__main__":
     gate4 = np.array([1.45, 0.8, 1.6, 0, 0.6])
 
     waypoints = (start[:3], gate1[:3], gate2[:3], gate3[:3], gate4[:3], end[:3])
+    gate_positions = (gate1, gate2, gate3, gate4)
 
     # Create the motion planner
-    motion_planner = MP(waypoints)
+    motion_planner = MP(waypoints, gate_positions)
 
-    motion_planner.plot(waypoints, motion_planner.trajectory_setpoints)
+    # motion_planner.plot(waypoints, motion_planner.trajectory_setpoints)
 
     # # print the waypoints
     # print("Waypoints:", waypoints) 
@@ -39,8 +40,8 @@ if __name__ == "__main__":
     # gate_map.set_optimal_path(motion_planner.trajectory_setpoints)
     # gate_map.set_optimal_path([pt[:2] for pt in motion_planner.trajectory_setpoints])
 
-    scaled_path = [(x * 10, y * 10) for x, y, *_ in motion_planner.trajectory_setpoints]
-    gate_map.set_optimal_path(scaled_path)
+    # scaled_path = [(x * 10, y * 10) for x, y, *_ in motion_planner.trajectory_setpoints]
+    # gate_map.set_optimal_path(scaled_path)
     # Display result in a loop (until key press)
     while True:
         gate_map.display_map()

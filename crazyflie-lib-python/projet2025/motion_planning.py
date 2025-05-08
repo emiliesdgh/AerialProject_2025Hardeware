@@ -7,7 +7,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 class MotionPlanner3D():
     
     #Question: SIMON PID, what is vel_max set for PID? Check should be same here
-    def __init__(self, waypoints):#, bounds, grid_size):
+    def __init__(self, waypoints, gates):#, bounds, grid_size):
         # Inputs:
         # - start: The sequence of input path waypoints provided by the path-planner, including the start and final goal position: Vector of m waypoints, consisting of a tuple with three reference positions each as provided by AStar 
         # - obstacles: 2D array with obstacle locations and obstacle widths [x, y, z, dx, dy, dz]*n_obs
@@ -22,6 +22,8 @@ class MotionPlanner3D():
         self.path = waypoints # where waypoints is the list of waypoints => the gate centers including start and end points
 
         self.trajectory_setpoints = None
+
+        self.gate_map = gates # position, size and orientation of the gates
 
         self.init_params(self.path)
 
@@ -196,7 +198,7 @@ class MotionPlanner3D():
         yaw_vals = np.zeros((self.disc_steps*len(self.times),1))
         trajectory_setpoints = np.hstack((x_vals, y_vals, z_vals, yaw_vals))
 
-        # self.plot(obs, path_waypoints, trajectory_setpoints)
+        self.plot(path_waypoints, trajectory_setpoints)
             
         # Find the maximum absolute velocity during the segment
         vel_max = np.max(np.sqrt(v_x_vals**2 + v_y_vals**2 + v_z_vals**2))
@@ -216,23 +218,67 @@ class MotionPlanner3D():
         # ---------------------------------------------------------------------------------------------------- ##
 
         return trajectory_setpoints, time_setpoints
-    
-    def plot_obstacle(self, ax, x, y, z, dx, dy, dz, color='gray', alpha=0.3):
+
+    # def plot_gates(self, ax, x, y, z, dx, dy, dz, color='gray', alpha=0.3):
+    #     """Plot a rectangular cuboid (obstacle) in 3D space."""
+    #     vertices = np.array([[x, y, z], [x+dx, y, z], [x+dx, y+dy, z], [x, y+dy, z],
+    #                         [x, y, z+dz], [x+dx, y, z+dz], [x+dx, y+dy, z+dz], [x, y+dy, z+dz]])
+        
+    #     faces = [[vertices[j] for j in [0, 1, 2, 3]], [vertices[j] for j in [4, 5, 6, 7]], 
+    #             [vertices[j] for j in [0, 1, 5, 4]], [vertices[j] for j in [2, 3, 7, 6]], 
+    #             [vertices[j] for j in [0, 3, 7, 4]], [vertices[j] for j in [1, 2, 6, 5]]]
+        
+    #     ax.add_collection3d(Poly3DCollection(faces, color=color, alpha=alpha))
+
+    def plot_gates(self, ax, gate, color='gray', alpha=0.3):
         """Plot a rectangular cuboid (obstacle) in 3D space."""
-        vertices = np.array([[x, y, z], [x+dx, y, z], [x+dx, y+dy, z], [x, y+dy, z],
-                            [x, y, z+dz], [x+dx, y, z+dz], [x+dx, y+dy, z+dz], [x, y+dy, z+dz]])
-        
-        faces = [[vertices[j] for j in [0, 1, 2, 3]], [vertices[j] for j in [4, 5, 6, 7]], 
-                [vertices[j] for j in [0, 1, 5, 4]], [vertices[j] for j in [2, 3, 7, 6]], 
-                [vertices[j] for j in [0, 3, 7, 4]], [vertices[j] for j in [1, 2, 6, 5]]]
-        
+        x, y, z, dtheta, dyz = gate[0], gate[1], gate[2], gate[3], gate[4]
+
+        # print("Gate position: ", x, y, z, dyz, dtheta)
+        # Convert rotation angle from degrees to radians
+        theta_rad = np.radians(dtheta+90)
+        # Rotation matrix around Z-axis
+        Rz = np.array([[np.cos(theta_rad), -np.sin(theta_rad), 0],
+                       [np.sin(theta_rad),  np.cos(theta_rad), 0],
+                       [0,                 0,                  1]])
+
+        dx = 0.1
+
+        # Compute corners relative to center
+        dx2, dy2, dz2 = dx/2, dyz/2, dyz/2
+
+        corners = np.array([[-dx2, -dy2, -dz2],
+                            [ dx2, -dy2, -dz2],
+                            [ dx2,  dy2, -dz2],
+                            [-dx2,  dy2, -dz2],
+
+                            [-dx2, -dy2,  dz2],
+                            [ dx2, -dy2,  dz2],
+                            [ dx2,  dy2,  dz2],
+                            [-dx2,  dy2,  dz2]])
+            # Apply rotation and translation
+        # rotated_corners =  np.dot(corners, Rz.T) * np.array([1, dyz/2*10, dyz/2*10]) + np.array([x, y, z])
+        rotated_corners =  np.dot(corners, Rz.T) + np.array([x, y, z])
+
+        # Define 6 faces of the cuboid
+        faces = [[rotated_corners[j] for j in [0, 1, 2, 3]],  # bottom
+                 [rotated_corners[j] for j in [4, 5, 6, 7]],  # top
+                 [rotated_corners[j] for j in [0, 1, 5, 4]],  # side 1
+                 [rotated_corners[j] for j in [2, 3, 7, 6]],  # side 2
+                 [rotated_corners[j] for j in [0, 3, 7, 4]],  # front
+                 [rotated_corners[j] for j in [1, 2, 6, 5]]]  # back
+ 
         ax.add_collection3d(Poly3DCollection(faces, color=color, alpha=alpha))
-    
+
+
     def plot(self, path_waypoints, trajectory_setpoints):
 
         # Plot 3D trajectory
         fig = plt.figure(figsize=(8, 6))
         ax = fig.add_subplot(111, projection='3d')
+
+        for gates in self.gate_map:
+            self.plot_gates(ax, gates)
 
         ax.plot(trajectory_setpoints[:,0], trajectory_setpoints[:,1], trajectory_setpoints[:,2], label="Minimum-Jerk Trajectory", linewidth=2)
         ax.set_xlim(0, 4.15) # meter

@@ -16,7 +16,7 @@ min_z, max_z = 0, 2 # meter
 class GatesMap:
     def __init__(self):
         # Initialize the occupancy grid
-        self.grid = np.zeros((3, 5), dtype=np.uint8)
+        self.grid = np.zeros((415, 255), dtype=np.uint8)
         # Initialize the waypoints
         #    gates             x  y  z theta ...?
         self.gate1 = np.zeros(5)
@@ -50,27 +50,27 @@ class GatesMap:
         self.optimal_path = path
         
 
-    def densify_path(self, path, spacing=1.0):
-        if len(path) < 2:
-            return path
+    # def densify_path(self, path, spacing=1.0):
+    #     if len(path) < 2:
+    #         return path
 
-        densified = []
-        for i in range(len(path) - 1):
-            x1, y1, *rest1 = path[i]
-            x2, y2, *rest2 = path[i + 1]
-            dist = np.hypot(x2 - x1, y2 - y1) #--> 2D
-            # dist = np.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2) # 3D
-            num_points = max(int(dist / spacing), 1)
+    #     densified = []
+    #     for i in range(len(path) - 1):
+    #         x1, y1, *rest1 = path[i]
+    #         x2, y2, *rest2 = path[i + 1]
+    #         dist = np.hypot(x2 - x1, y2 - y1) #--> 2D
+    #         # dist = np.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2) # 3D
+    #         num_points = max(int(dist / spacing), 1)
 
-            for j in range(num_points):
-                t = j / num_points
-                x = x1 + t * (x2 - x1)
-                y = y1 + t * (y2 - y1)
-                # z = z1 + t * (z2 - z1)
-                densified.append((x, y))#, z))
+    #         for j in range(num_points):
+    #             t = j / num_points
+    #             x = x1 + t * (x2 - x1)
+    #             y = y1 + t * (y2 - y1)
+    #             # z = z1 + t * (z2 - z1)
+    #             densified.append((x, y))#, z))
 
-        densified.append(path[-1])  # include the final point
-        return densified
+    #     densified.append(path[-1])  # include the final point
+    #     return densified
 
 
 ###########################
@@ -86,14 +86,12 @@ class GatesMap:
             [-w/2, -h/2],
             [ w/2, -h/2],
             [ w/2,  h/2],
-            [-w/2,  h/2]
-        ])
+            [-w/2,  h/2] ])
 
         # Rotation matrix
         rotation = np.array([
             [np.cos(angle_rad), -np.sin(angle_rad)],
-            [np.sin(angle_rad),  np.cos(angle_rad)]
-        ])
+            [np.sin(angle_rad),  np.cos(angle_rad)] ])
 
         # Rotate and translate corners
         rotated_rect = np.dot(rect, rotation) + np.array([cx, cy])
@@ -122,7 +120,10 @@ class GatesMap:
             "G4": (self.gate4, (0, 255, 255))  # Yellow
         }
         for label, (gate, color) in gates.items():
-            x, y = int(gate[0]), int(gate[1])
+            scale = 100
+            x, y = (gate[0])*scale, (gate[1])*scale
+            x, y = int(x), int(y)
+            print(f"Gate {label} position: ({x}, {y})")
             theta = gate[3]  # heading in degrees
             size = gate[4]*10, 1  # size of the gate
             self.draw_rotated_rectangle(color_grid, (x, y), theta, size, color=color, label=label)
@@ -147,17 +148,18 @@ class GatesMap:
         cv2.circle(color_grid, (ex, ey), 4, (255, 255, 255), -1)  
         cv2.putText(color_grid, 'End', (ex+5, ey-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 165, 255), 1)
 
-        if self.optimal_path:
-            # for i in range(1, len(self.optimal_path)):
-            #     pt1 = (int(self.optimal_path[i - 1][0]), int(self.optimal_path[i - 1][1]))
-            #     pt2 = (int(self.optimal_path[i][0]), int(self.optimal_path[i][1]))
+        # if self.optimal_path:
+        #     # for i in range(1, len(self.optimal_path)):
+        #     #     pt1 = (int(self.optimal_path[i - 1][0]), int(self.optimal_path[i - 1][1]))
+        #     #     pt2 = (int(self.optimal_path[i][0]), int(self.optimal_path[i][1]))
 
-            #     cv2.line(color_grid, pt1, pt2, (255, 255, 255), 1)
-            densified_points = self.densify_path(self.optimal_path, spacing=1.0)
-            for point in densified_points:
-                x, y = int(round(point[0])), int(round(point[1]))
-                # Draw the densified point as a small dot
-                cv2.circle(color_grid, (x, y), 1, (0, 255, 255), -1)  # Yellow dots
+        #     #     cv2.line(color_grid, pt1, pt2, (255, 255, 255), 1)
+        #     # densified_points = self.densify_path(self.optimal_path, spacing=1.0)
+        #     # for point in densified_points:
+        #     for point in self.optimal_path:
+        #         x, y = int(round(point[0])), int(round(point[1]))
+        #         # Draw the densified point as a small dot
+        #         cv2.circle(color_grid, (x, y), 1, (0, 255, 255), -1)  # Yellow dots
             
             # Smooth the path before drawing it
             # smoothed_path = self.smooth_path(self.optimal_path, smoothing_factor=0)
@@ -165,15 +167,15 @@ class GatesMap:
             #     pt1 = (int(round(smoothed_path[i][0])), int(round(smoothed_path[i][1])))
             #     pt2 = (int(round(smoothed_path[i + 1][0])), int(round(smoothed_path[i + 1][1])))
             #     cv2.line(color_grid, pt1, pt2, (255, 255, 255), 1)
-            for i in range(len(densified_points) - 1):
-                pt1 = (int(round(densified_points[i][0])), int(round(densified_points[i][1])))
-                pt2 = (int(round(densified_points[i + 1][0])), int(round(densified_points[i + 1][1])))
-                cv2.line(color_grid, pt1, pt2, (255, 255, 255), 1)  # White for the path
+            # for i in range(len(self.optimal_path) - 1):
+            #     pt1 = (int(round(self.optimal_path[i][0])), int(round(self.optimal_path[i][1])))
+            #     pt2 = (int(round(self.optimal_path[i + 1][0])), int(round(self.optimal_path[i + 1][1])))
+            #     cv2.line(color_grid, pt1, pt2, (255, 255, 255), 1)  # White for the path
 
 
         # Display the map
         # Resize for better visibility
-        scale = 50  # Increase this for a bigger display
+        scale = 2#5  # Increase this for a bigger display
         resized_grid = cv2.resize(color_grid, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
         cv2.imshow('Occupancy Grid with Gates -- 2D slice (z=0)', resized_grid)
         cv2.waitKey(1)
