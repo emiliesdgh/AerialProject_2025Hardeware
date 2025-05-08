@@ -219,17 +219,6 @@ class MotionPlanner3D():
 
         return trajectory_setpoints, time_setpoints
 
-    # def plot_gates(self, ax, x, y, z, dx, dy, dz, color='gray', alpha=0.3):
-    #     """Plot a rectangular cuboid (obstacle) in 3D space."""
-    #     vertices = np.array([[x, y, z], [x+dx, y, z], [x+dx, y+dy, z], [x, y+dy, z],
-    #                         [x, y, z+dz], [x+dx, y, z+dz], [x+dx, y+dy, z+dz], [x, y+dy, z+dz]])
-        
-    #     faces = [[vertices[j] for j in [0, 1, 2, 3]], [vertices[j] for j in [4, 5, 6, 7]], 
-    #             [vertices[j] for j in [0, 1, 5, 4]], [vertices[j] for j in [2, 3, 7, 6]], 
-    #             [vertices[j] for j in [0, 3, 7, 4]], [vertices[j] for j in [1, 2, 6, 5]]]
-        
-    #     ax.add_collection3d(Poly3DCollection(faces, color=color, alpha=alpha))
-
     def plot_gates(self, ax, gate, color='gray', alpha=0.3):
         """Plot a rectangular cuboid (obstacle) in 3D space."""
         x, y, z, dtheta, dyz = gate[0], gate[1], gate[2], gate[3], gate[4]

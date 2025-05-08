@@ -13,8 +13,8 @@ if __name__ == "__main__":
 
     # Set start, end, and gate positions (x, y, z, theta, gate size)
     # all positions are given in meters and theta in degrees
-    start = np.array([1.5, 1.5, 0, 0.6])
-    end = np.array([1.5, 1.5, 1, 0.6])
+    start = np.array([1.5, 1.5, 0, 0, 0.6])
+    end = np.array([1.5, 1.5, 1, 0, 0.6])
 
     gate1 = np.array([2.25, 2.05, 0.8, 90, 0.6])
     gate2 = np.array([3.6, 1.5, 1.2, 180, 0.6])
@@ -28,20 +28,15 @@ if __name__ == "__main__":
     # Create the motion planner
     motion_planner = MP(waypoints, gate_positions)
 
-    # motion_planner.plot(waypoints, motion_planner.trajectory_setpoints)
+    # # # print the waypoints
+    # # print("Waypoints:", waypoints) 
+    # # # print the interpolated trajectory setpoints
+    # # print("Interpolated trajectory setpoints:", motion_planner.trajectory_setpoints)
 
-    # # print the waypoints
-    # print("Waypoints:", waypoints) 
-    # # print the interpolated trajectory setpoints
-    # print("Interpolated trajectory setpoints:", motion_planner.trajectory_setpoints)
-
-    # Set the gate and waypoint data
+    # # Set the gate and waypoint data
     gate_map.set_gates(start, end, gate1, gate2, gate3, gate4)
-    # gate_map.set_optimal_path(motion_planner.trajectory_setpoints)
-    # gate_map.set_optimal_path([pt[:2] for pt in motion_planner.trajectory_setpoints])
+    gate_map.set_optimal_path(motion_planner.trajectory_setpoints)
 
-    # scaled_path = [(x * 10, y * 10) for x, y, *_ in motion_planner.trajectory_setpoints]
-    # gate_map.set_optimal_path(scaled_path)
     # Display result in a loop (until key press)
     while True:
         gate_map.display_map()
