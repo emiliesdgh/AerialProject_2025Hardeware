@@ -17,7 +17,7 @@ class Drone:
 
 
 
-    def update(self, sensor_data, camera_data, t):
+    def update(self, sensor_data):
         self._sensor_data = sensor_data
 
         if self._state == "takeoff":
