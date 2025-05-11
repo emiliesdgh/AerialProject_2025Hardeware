@@ -4,7 +4,7 @@ import numpy as np
 
 # === Constants ===
 TARGET_Z = 1.35
-THRESHOLD = 1
+THRESHOLD = 0.5 # ACCEPTED DISTANCE TO POINT
 
 class Drone:
     def __init__(self):
@@ -15,7 +15,8 @@ class Drone:
 
         self._sensor_data = None
 
-
+    def set_trajectory(self, points):  # PUT TRAJECTORY POINTS INTO HERE
+        self.target_list = points
 
     def update(self, sensor_data):
         self._sensor_data = sensor_data
@@ -48,14 +49,13 @@ class Drone:
             self._state = "run"
 
     def _run(self):
-        self._follow_path(0.4)
+        self._follow_path(THRESHOLD)
 
-    def _follow_path(self, threshold=THRESHOLD):
+    def _follow_path(self, threshold):
         if not self.target_list:
             return True
-
         self.target = self.target_list[0]
-        if self._target_reached(threshold=threshold, check_yaw=True):
+        if self._target_reached(threshold, check_yaw=True):
             self.target_list.pop(0)
             if self.target_list:
                 self.target = self.target_list[0]
