@@ -7,7 +7,9 @@ from gates_map import GatesMap as GM
 from motion_planning import MotionPlanner3D as MP
 
 
-if __name__ == "__main__":
+
+
+def createPoints():
     # Initialize the occupancy grid
     gate_map = GM()
 
@@ -44,3 +46,7 @@ if __name__ == "__main__":
             break
 
     cv2.destroyAllWindows()
+    return motion_planner
+
+if __name__ == "__main__":
+    createPoints()
