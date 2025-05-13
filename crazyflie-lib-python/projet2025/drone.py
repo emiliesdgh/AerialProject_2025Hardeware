@@ -15,8 +15,11 @@ class Drone:
 
         self._sensor_data = None
 
-    def set_trajectory(self, points):  # PUT TRAJECTORY POINTS INTO HERE
-        self.target_list = points
+    def set_trajectory(self, points):
+        if isinstance(points, np.ndarray):
+            self.target_list = points.tolist()
+        else:
+            self.target_list = points
 
     def update(self, sensor_data):
         self._sensor_data = sensor_data
@@ -39,6 +42,7 @@ class Drone:
             self._sensor_data['yaw']
         ]
         if self._target_reached():
+            print(type(self.target_list))
             if self.target_list:
                 self._state = "run"
 
