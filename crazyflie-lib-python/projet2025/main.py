@@ -3,16 +3,14 @@ import cv2
 import time 
 
 
-from gates_map import GatesMap as GM
+from drone import Drone
+from log_and_control import run_drone
 from motion_planning import MotionPlanner3D as MP
 
 
 
 
 def createPoints():
-    # Initialize the occupancy grid
-    gate_map = GM()
-
     # Set start, end, and gate positions (x, y, z, theta, gate size)
     # all positions are given in meters and theta in degrees
     start = np.array([1.5, 1.5, 0, 0, 0.6])
@@ -34,19 +32,12 @@ def createPoints():
     # # print("Waypoints:", waypoints) 
     # # # print the interpolated trajectory setpoints
     # # print("Interpolated trajectory setpoints:", motion_planner.trajectory_setpoints)
-
-    # # Set the gate and waypoint data
-    gate_map.set_gates(start, end, gate1, gate2, gate3, gate4)
-    gate_map.set_optimal_path(motion_planner.trajectory_setpoints)
-
-    # Display result in a loop (until key press)
-    while True:
-        gate_map.display_map()
-        if cv2.waitKey(50) & 0xFF == ord('q'):
-            break
-
-    cv2.destroyAllWindows()
     return motion_planner
 
 if __name__ == "__main__":
-    createPoints()
+    mp = createPoints()
+    drone = Drone()
+    drone.set_trajectory(mp.trajectory_setpoints)
+
+    run_drone("radio://0/80/2M/E7E7E7E718", drone)
+
