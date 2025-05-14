@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
     # Set start, end, and gate positions (x, y, z, theta, gate size)
     # all positions are given in meters and theta in degrees
-    start = np.array([0, 0, 0, 0, 0.6])
+    start = np.array([0, 0, 0.5, 0, 0.6])
     end = np.array([0, 0, 0.5, 0, 0.6])
 
     gate1 = np.array([1.14, -0.54, 0.81, 90, 0.6])
@@ -36,6 +36,43 @@ if __name__ == "__main__":
     # # Set the gate and waypoint data
     gate_map.set_gates(start, end, gate1, gate2, gate3, gate4)
     gate_map.set_optimal_path(motion_planner.trajectory_setpoints)
+
+    trajectory_points = motion_planner.trajectory_setpoints
+    for i in range(60):
+
+        print(trajectory_points[i,0], trajectory_points[i,1], trajectory_points[i,2], 0)
+        i=i+2
+
+    print("HERE")
+
+    for i in range(120):
+
+        print(trajectory_points[i][0], trajectory_points[i][1], trajectory_points[i][2], 0)
+        i=i+2
+
+    j=0
+    for i in range(60):
+        for _ in range(3):
+            print(trajectory_points[i,0], trajectory_points[i,1], trajectory_points[i,2], 0)
+            time.sleep(0.1)
+            print("i :", i)
+        i = i+2
+
+    for i in range(60):
+        for _ in range(3):
+            print(trajectory_points[j,0], trajectory_points[j,1], trajectory_points[j,2], 0)
+            time.sleep(0.1)
+            print("j :", j)
+        j = j+2
+    
+    # j=0
+    # for i in range(10):
+    #     print(j)
+    #     j=j+2
+
+
+
+    print(motion_planner.trajectory_setpoints.shape)
 
     # Display result in a loop (until key press)
     while True:

@@ -218,7 +218,7 @@ if __name__ == '__main__':
     # TODO : CHANGE THIS TO YOUR NEEDS
     # Set start, end, and gate positions (x, y, z, theta, gate size)
     # all positions are given in meters and theta in degrees
-    start = np.array([0, 0, 0, 0, 0.6])
+    start = np.array([0, 0, 0.5, 0, 0.6])
     end = np.array([0, 0, 0.5, 0, 0.6])
 
     gate1 = np.array([1.14, -0.54, 0.81, 90, 0.6])
@@ -232,7 +232,10 @@ if __name__ == '__main__':
 
     # Create the motion planner
     motion_planner = MP(waypoints, gate_positions)
-    print(motion_planner.gate_map)
+    trajectory_points = motion_planner.trajectory_setpoints
+
+    # print(motion_planner.trajectory_setpoints)
+
 
     print("Starting control")
     while le.is_connected:
@@ -240,8 +243,12 @@ if __name__ == '__main__':
         
 
         # print(f"State Estimate : {'stateEstimate'}")
-        cf.commander.send_position_setpoint(0, 0, 1, 0)
-
+        for _ in range (30):
+            cf.commander.send_position_setpoint(0, 0, 0.5, 0)
+            time.sleep(0.1)
+        for i in range (30): 
+            cf.commander.send_position_setpoint(0, 0, 0.5, 0)
+            time.sleep(0.1)
         
         # # Take-off
         # for y in range(10):
@@ -252,9 +259,44 @@ if __name__ == '__main__':
         #     time.sleep(0.1)
 
         # for _ in range(20):
-        #     # cf.commander.send_position_setpoint(gate1[0], gate1[1], gate1[2], gate1[3])
-        #     cf.commander.send_position_setpoint(0, 0, 1, 0)
+        #     cf.commander.send_position_setpoint(gate1[0], gate1[1], gate1[2], 0)
+        #   #  cf.commander.send_position_setpoint(0, 0, 1, 0)
         #     time.sleep(0.1)
+
+        # for _ in range(20):
+        #     cf.commander.send_position_setpoint(gate1[0], gate1[1], gate1[2], 0)
+        #   #  cf.commander.send_position_setpoint(0, 0, 1, 0)
+        #     time.sleep(0.1)
+
+        ########### === A essayer === ###########
+        #########################################
+
+        for i in range(120):
+            for _ in range(3):
+                cf.commander.send_position_setpoint(trajectory_points[i,0], trajectory_points[i,1], trajectory_points[i,2], 0)
+                time.sleep(0.1)
+            i = i+2
+        
+        #########################################
+
+        j = 0
+        for i in range(60):
+            for _ in range(3):
+                cf.commander.send_position_setpoint(trajectory_points[j,0], trajectory_points[j,1], trajectory_points[j,2], 0)
+                time.sleep(0.1)
+            j = j+2
+        
+        #########################################
+
+        j = 0
+        for i in range(60):
+            for _ in range(3):
+                cf.commander.send_position_setpoint(trajectory_points[j][0], trajectory_points[j][1], trajectory_points[j][2], 0)
+                time.sleep(0.1)
+            j = j+2
+        
+        #########################################
+        #########################################
 
         # # Move 
         # for _ in range(50):
