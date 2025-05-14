@@ -36,18 +36,25 @@ import time
 from threading import Timer
 import threading
 
-from pynput import keyboard # Import the keyboard module for key press detection
+import numpy as np
+
+# from pynput import keyboard # Import the keyboard module for key press detection
 
 import cflib.crtp  # noqa
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.log import LogConfig
 from cflib.utils import uri_helper
 
+from motion_planning import MotionPlanner3D as MP
+from drone import Drone 
+
 # TODO: CHANGE THIS URI TO YOUR CRAZYFLIE & YOUR RADIO CHANNEL
 uri = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E718')
 
 # Only output errors from the logging framework
 logging.basicConfig(level=logging.ERROR)
+
+drone = None
 
 
 class LoggingExample:
@@ -154,8 +161,43 @@ def emergency_stop_callback(cf):
             pass
 
     # Start listening for key presses
-    with keyboard.Listener(on_press=on_press) as listener:
-        listener.join()
+    # with keyboard.Listener(on_press=on_press) as listener:
+    #     listener.join()
+
+def get_command(sensor_data):#, camera_data, dt):
+    global drone#, start_time
+    if drone is None:
+        # Set start, end, and gate positions (x, y, z, theta, gate size)
+        # all positions are given in meters and theta in degrees
+        start = np.array([0, 0, 0.5, 0, 0.6])
+        end = np.array([0, 0, 0.5, 0, 0.6])
+
+        gate1 = np.array([1.14, -0.54, 0.81, 90, 0.6])
+        gate2 = np.array([2.09, 0.33, 1.18, 180, 0.6])
+
+        gate3 = np.array([0.55, 0.65, 1.5, 270, 0.6])
+        gate4 = np.array([-0.4, 0.69, 1.6, 0, 0.6])
+
+        waypoints = (start[:3], gate1[:3], gate2[:3], gate3[:3], gate4[:3], end[:3])
+        gate_positions = (gate1, gate2, gate3, gate4)
+
+        # Create the motion planner
+        motion_planner = MP(waypoints, gate_positions)
+        drone = Drone()
+        drone.set_trajectory(motion_planner.trajectory_setpoints)
+        drone.threshold = 1
+        # drone.target_list =[
+        #     [3.0, 3.0, 1, np.radians(0)],    # Bottom-left
+        #     [5.0, 3.0, 1, np.radians(90)],   # Bottom-right
+        #     [5.0, 5.0, 1, np.radians(180)],  # Top-right
+        #     [3.0, 5.0, 1, np.radians(270)],  # Top-left
+        #     [3.0, 3.0, 1, np.radians(0)],    # Back to start
+        # ]
+        
+    #     start_time = time.time()
+    
+    # t = time.time() - start_time
+    return drone.update(sensor_data)
 
 if __name__ == '__main__':
     # Initialize the low-level drivers
@@ -174,25 +216,53 @@ if __name__ == '__main__':
     emergency_stop_thread.start()
 
     # TODO : CHANGE THIS TO YOUR NEEDS
+    # Set start, end, and gate positions (x, y, z, theta, gate size)
+    # all positions are given in meters and theta in degrees
+    start = np.array([0, 0, 0, 0, 0.6])
+    end = np.array([0, 0, 0.5, 0, 0.6])
+
+    gate1 = np.array([1.14, -0.54, 0.81, 90, 0.6])
+    gate2 = np.array([2.09, 0.33, 1.18, 180, 0.6])
+
+    gate3 = np.array([0.55, 0.65, 1.5, 270, 0.6])
+    gate4 = np.array([-0.4, 0.69, 1.6, 0, 0.6])
+
+    waypoints = (start[:3], gate1[:3], gate2[:3], gate3[:3], gate4[:3], end[:3])
+    gate_positions = (gate1, gate2, gate3, gate4)
+
+    # Create the motion planner
+    motion_planner = MP(waypoints, gate_positions)
+    print(motion_planner.gate_map)
+
     print("Starting control")
     while le.is_connected:
         time.sleep(0.01)
         
-        # Take-off
-        for y in range(10):
-            cf.commander.send_hover_setpoint(0, 0, 0, y / 25)
-            time.sleep(0.1)
-        for _ in range(20):
-            cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-            time.sleep(0.1)
 
-        # Move 
-        for _ in range(50):
-            cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-            time.sleep(0.1)
-        for _ in range(50):
-            cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-            time.sleep(0.1)
+        # print(f"State Estimate : {'stateEstimate'}")
+        cf.commander.send_position_setpoint(0, 0, 1, 0)
+
+        
+        # # Take-off
+        # for y in range(10):
+        #     cf.commander.send_hover_setpoint(0, 0, 0, y / 25)
+        #     time.sleep(0.1)
+        # for _ in range(20):
+        #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
+        #     time.sleep(0.1)
+
+        # for _ in range(20):
+        #     # cf.commander.send_position_setpoint(gate1[0], gate1[1], gate1[2], gate1[3])
+        #     cf.commander.send_position_setpoint(0, 0, 1, 0)
+        #     time.sleep(0.1)
+
+        # # Move 
+        # for _ in range(50):
+        #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
+        #     time.sleep(0.1)
+        # for _ in range(50):
+        #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
+        #     time.sleep(0.1)
 
         # Land
         for _ in range(20):
@@ -202,5 +272,5 @@ if __name__ == '__main__':
             cf.commander.send_hover_setpoint(0, 0, 0, (10 - y) / 25)
             time.sleep(0.1)
 
-        cf.commander.send_stop_setpoint()
+        # cf.commander.send_stop_setpoint()
         break

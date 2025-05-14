@@ -13,14 +13,14 @@ if __name__ == "__main__":
 
     # Set start, end, and gate positions (x, y, z, theta, gate size)
     # all positions are given in meters and theta in degrees
-    start = np.array([1.5, 1.5, 0, 0, 0.6])
-    end = np.array([1.5, 1.5, 1, 0, 0.6])
+    start = np.array([0, 0, 0, 0, 0.6])
+    end = np.array([0, 0, 0.5, 0, 0.6])
 
-    gate1 = np.array([2.25, 2.05, 0.8, 90, 0.6])
-    gate2 = np.array([3.6, 1.5, 1.2, 180, 0.6])
+    gate1 = np.array([1.14, -0.54, 0.81, 90, 0.6])
+    gate2 = np.array([2.09, 0.33, 1.18, 180, 0.6])
 
-    gate3 = np.array([2.3, 0.2, 1.7, 270, 0.6])
-    gate4 = np.array([1.45, 0.8, 1.6, 0, 0.6])
+    gate3 = np.array([0.55, 0.65, 1.5, 270, 0.6])
+    gate4 = np.array([-0.4, 0.69, 1.6, 0, 0.6])
 
     waypoints = (start[:3], gate1[:3], gate2[:3], gate3[:3], gate4[:3], end[:3])
     gate_positions = (gate1, gate2, gate3, gate4)
