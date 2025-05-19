@@ -240,36 +240,21 @@ if __name__ == '__main__':
     print("Starting control")
     while le.is_connected:
         time.sleep(0.01)
+
         
-
-        # print(f"State Estimate : {'stateEstimate'}")
-        for _ in range (30):
-            cf.commander.send_position_setpoint(0, 0, 0.5, 0)
+        ### === Take-off === ###
+        for y in range(10):
+            cf.commander.send_hover_setpoint(0, 0, 0, y / 25)
             time.sleep(0.1)
-        for i in range (30): 
-            cf.commander.send_position_setpoint(0, 0, 0.5, 0)
+        for _ in range(20):
+            cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
             time.sleep(0.1)
-        
-        # # Take-off
-        # for y in range(10):
-        #     cf.commander.send_hover_setpoint(0, 0, 0, y / 25)
-        #     time.sleep(0.1)
-        # for _ in range(20):
-        #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-        #     time.sleep(0.1)
+        ### ================ ###
 
-        # for _ in range(20):
-        #     cf.commander.send_position_setpoint(gate1[0], gate1[1], gate1[2], 0)
-        #   #  cf.commander.send_position_setpoint(0, 0, 1, 0)
-        #     time.sleep(0.1)
-
-        # for _ in range(20):
-        #     cf.commander.send_position_setpoint(gate1[0], gate1[1], gate1[2], 0)
-        #   #  cf.commander.send_position_setpoint(0, 0, 1, 0)
-        #     time.sleep(0.1)
 
         ########### === A essayer === ###########
         #########################################
+        # premier essai, mettre le reste en commentaire
 
         for i in range(120):
             for _ in range(3):
@@ -278,7 +263,7 @@ if __name__ == '__main__':
             i = i+2
         
         #########################################
-
+        # deuxieme essai, mettre le reste en commentaire
         j = 0
         for i in range(60):
             for _ in range(3):
@@ -287,32 +272,25 @@ if __name__ == '__main__':
             j = j+2
         
         #########################################
-
+        # troisieme essai, mettre le reste en commentaire
         j = 0
         for i in range(60):
             for _ in range(3):
                 cf.commander.send_position_setpoint(trajectory_points[j][0], trajectory_points[j][1], trajectory_points[j][2], 0)
                 time.sleep(0.1)
             j = j+2
+
         
-        #########################################
-        #########################################
+        
 
-        # # Move 
-        # for _ in range(50):
-        #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-        #     time.sleep(0.1)
-        # for _ in range(50):
-        #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-        #     time.sleep(0.1)
-
-        # Land
+        ### === Land === ###
         for _ in range(20):
             cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
             time.sleep(0.1)
         for y in range(10):
             cf.commander.send_hover_setpoint(0, 0, 0, (10 - y) / 25)
             time.sleep(0.1)
+        ### ============ ###
 
-        # cf.commander.send_stop_setpoint()
+        cf.commander.send_stop_setpoint()
         break
