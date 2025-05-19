@@ -231,8 +231,25 @@ if __name__ == '__main__':
     gate_positions = (gate1, gate2, gate3, gate4)
 
     # Create the motion planner
-    motion_planner = MP(waypoints, gate_positions)
+    # motion_planner = MP(waypoints, gate_positions)
+    # trajectory_points = motion_planner.trajectory_setpoints
+
+
+    # TODO : CHANGE THIS TO YOUR NEEDS
+    # setpoints = [[0.89, -0.17, 0.77], [1.8, 0.27, 1.2], [1.8, 0.27, 1.2], [-0.21, 0.65, 1.68]]
+    setpoints = (gate1[:3], gate2[:3], gate3[:3], gate4[:3])
+    # times = np.linspace(0, 15, len(setpoints))
+    # yaw_setpoints = [0, np.pi / 2, -np.pi, -np.pi / 2]
+    # disc_steps = 50
+
+    # Create the motion planner
+    # motion_planner = MP(waypoints, gate_positions)
+    motion_planner = MP(setpoints, gate_positions)
     trajectory_points = motion_planner.trajectory_setpoints
+
+    poly_coeffs = motion_planner.compute_poly_coefficients(setpoints)
+    # trajectory_setpoints, time_setpoints = motion_planner.poly_setpoint_extraction(poly_coeffs, waypoints)
+    trajectory_setpoints, time_setpoints = motion_planner.poly_setpoint_extraction(poly_coeffs, setpoints)
 
     # print(motion_planner.trajectory_setpoints)
 
@@ -254,32 +271,37 @@ if __name__ == '__main__':
 
         ########### === A essayer === ###########
         #########################################
-        # premier essai, mettre le reste en commentaire
+        # # premier essai, mettre le reste en commentaire
 
-        for i in range(120):
-            for _ in range(3):
-                cf.commander.send_position_setpoint(trajectory_points[i,0], trajectory_points[i,1], trajectory_points[i,2], 0)
-                time.sleep(0.1)
-            i = i+2
+        # for i in range(120):
+        #     for _ in range(3):
+        #         cf.commander.send_position_setpoint(trajectory_points[i,0], trajectory_points[i,1], trajectory_points[i,2], 0)
+        #         time.sleep(0.1)
+        #     i = i+2
         
-        #########################################
-        # deuxieme essai, mettre le reste en commentaire
-        j = 0
-        for i in range(60):
-            for _ in range(3):
-                cf.commander.send_position_setpoint(trajectory_points[j,0], trajectory_points[j,1], trajectory_points[j,2], 0)
-                time.sleep(0.1)
-            j = j+2
+        # #########################################
+        # # deuxieme essai, mettre le reste en commentaire
+        # j = 0
+        # for i in range(60):
+        #     for _ in range(3):
+        #         cf.commander.send_position_setpoint(trajectory_points[j,0], trajectory_points[j,1], trajectory_points[j,2], 0)
+        #         time.sleep(0.1)
+        #     j = j+2
         
-        #########################################
-        # troisieme essai, mettre le reste en commentaire
-        j = 0
-        for i in range(60):
-            for _ in range(3):
-                cf.commander.send_position_setpoint(trajectory_points[j][0], trajectory_points[j][1], trajectory_points[j][2], 0)
-                time.sleep(0.1)
-            j = j+2
+        # #########################################
+        # # troisieme essai, mettre le reste en commentaire
+        # j = 0
+        # for i in range(60):
+        #     for _ in range(3):
+        #         cf.commander.send_position_setpoint(trajectory_points[j][0], trajectory_points[j][1], trajectory_points[j][2], 0)
+        #         time.sleep(0.1)
+        #     j = j+2
 
+        ### === Move === ###
+        for setpoint, time_setpoint in zip(trajectory_setpoints, time_setpoints):
+            cf.commander.send_position_setpoint(setpoint[0], setpoint[1], setpoint[2], setpoint[3])
+            time.sleep(time_setpoint)
+        ### ============ ###
         
         
 

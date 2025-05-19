@@ -25,6 +25,13 @@ class MotionPlanner3D():
 
         self.gate_map = gates # position, size and orientation of the gates
 
+        self.times = np.linspace(0, 15, len(waypoints))
+        print("times", self.times)
+        # self.times = self.compute_times_from_waypoints_with_acc(self.path, self.vel_lim, self.acc_lim)
+
+        self.yaw_setpoints = [0, 0, np.pi / 2, -np.pi, -np.pi / 2, 0]
+        self.disc_steps = 50
+
         self.init_params(self.path)
 
         self.run_planner(self.path) # pass empty obstacle list
@@ -182,6 +189,10 @@ class MotionPlanner3D():
 
         for i,t in enumerate(time_setpoints):
             seg_idx = min(max(np.searchsorted(self.times, t)-1,0), len(coeff_x) - 1)
+            # max_seg = len(coeff_x) // 6 - 1  # number of segments
+            # seg_idx = min(max(np.searchsorted(self.times, t)-1, 0), max_seg)
+
+            # print(f"i = {i}, t = {t}, seg_idx = {seg_idx}, coeff range = {seg_idx*6}:{(seg_idx+1)*6}, coeff_x size = {coeff_x.shape}")
             # Determine the x,y and z position reference points at every refernce time
             x_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[0],coeff_x[seg_idx*6:(seg_idx+1)*6])
             y_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[0],coeff_y[seg_idx*6:(seg_idx+1)*6])
@@ -196,6 +207,26 @@ class MotionPlanner3D():
             a_z_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[2],coeff_z[seg_idx*6:(seg_idx+1)*6])
 
         yaw_vals = np.zeros((self.disc_steps*len(self.times),1))
+        # compute yaw angle waypoint
+
+        def angle_lerp(a0, a1, t):
+            diff = (a1 - a0 + np.pi) % (2 * np.pi) - np.pi
+            return a0 + diff * t
+
+        yaw_waypoints = np.unwrap(self.yaw_setpoints)
+        num_segments = len(yaw_waypoints) - 1
+        segment_time = self.times[-1] / num_segments
+        print(yaw_waypoints)
+
+        yaw_vals = np.zeros_like(time_setpoints)
+        for i, t in enumerate(time_setpoints):
+            seg_idx = min(int(t // segment_time), num_segments - 1)
+            t0 = seg_idx * segment_time
+            alpha = (t - t0) / segment_time
+            yaw_vals[i] = angle_lerp(yaw_waypoints[seg_idx], yaw_waypoints[seg_idx + 1], alpha)
+        yaw_vals = np.array(yaw_vals).reshape(-1, 1)
+
+
         trajectory_setpoints = np.hstack((x_vals, y_vals, z_vals, yaw_vals))
 
         self.plot(path_waypoints, trajectory_setpoints)
@@ -218,6 +249,44 @@ class MotionPlanner3D():
         # ---------------------------------------------------------------------------------------------------- ##
 
         return trajectory_setpoints, time_setpoints
+
+    def compute_times_from_waypoints_with_acc(setpoints, v_max, a_max):
+        """
+        Args:
+            setpoints: list of waypoints [ [x0, y0, z0], [x1, y1, z1], ... ]
+            v_max: maximum allowed velocity (float)
+            a_max: maximum allowed acceleration (float)
+        Returns:
+            times: list of times corresponding to each waypoint
+        """
+        setpoints_array = np.array(setpoints)
+        setpoints_array = setpoints_array[:, 0:3]
+        # print(setpoints_array)
+        dists = np.linalg.norm(setpoints_array[1:] - setpoints_array[:-1], axis=1)
+        dists += 1e-8  # avoid singular matrix
+
+        seg_times = []
+        for d in dists:
+            d_acc = (v_max**2) / (2 * a_max)
+
+            if d >= 2 * d_acc:
+                t_acc = v_max / a_max
+                d_cruise = d - 2 * d_acc
+                t_cruise = d_cruise / v_max
+                t_total = 2 * t_acc + t_cruise
+            else:
+                v_peak = np.sqrt(a_max * d)
+                t_acc = v_peak / a_max
+                t_total = 2 * t_acc
+
+            seg_times.append(t_total)
+
+        times = [0.0]
+        for t in seg_times:
+            times.append(times[-1] + t)
+
+        return times
+
 
     def plot_gates(self, ax, gate, color='gray', alpha=0.3):
         """Plot a rectangular cuboid (obstacle) in 3D space."""
@@ -259,8 +328,12 @@ class MotionPlanner3D():
  
         ax.add_collection3d(Poly3DCollection(faces, color=color, alpha=alpha))
 
-
     def plot(self, path_waypoints, trajectory_setpoints):
+
+        start = np.array([0, 0, 0.5, 0, 0.6])
+        end = np.array([0, 0, 0.5, 0, 0.6])
+
+        path_waypoints = (start[:3], path_waypoints[0][:3], path_waypoints[1][:3], path_waypoints[2][:3], path_waypoints[3][:3], end[:3])
 
         # Plot 3D trajectory
         fig = plt.figure(figsize=(8, 6))
@@ -296,3 +369,58 @@ class MotionPlanner3D():
         ax.legend()
         plt.show()
 
+# def poly_setpoint_extraction(self, poly_coeffs,yaw_setpoints, times, disc_steps):# path_waypoints):
+
+#         # DO NOT MODIFY --------------------------------------------------------------------------------------- ##
+
+#         # Uses the class features: self.disc_steps, self.times, self.poly_coeffs, self.vel_lim, self.acc_lim
+#         x_vals, y_vals, z_vals = np.zeros((self.disc_steps*len(self.times),1)), np.zeros((self.disc_steps*len(self.times),1)), np.zeros((self.disc_steps*len(self.times),1))
+#         v_x_vals, v_y_vals, v_z_vals = np.zeros((self.disc_steps*len(self.times),1)), np.zeros((self.disc_steps*len(self.times),1)), np.zeros((self.disc_steps*len(self.times),1))
+#         a_x_vals, a_y_vals, a_z_vals = np.zeros((self.disc_steps*len(self.times),1)), np.zeros((self.disc_steps*len(self.times),1)), np.zeros((self.disc_steps*len(self.times),1))
+
+#         # Define the time reference in self.disc_steps number of segements
+#         time_setpoints = np.linspace(self.times[0], self.times[-1], self.disc_steps*len(self.times))  # Fine time intervals
+
+#         # Extract the x,y and z direction polynomial coefficient vectors
+#         coeff_x = poly_coeffs[:,0]
+#         coeff_y = poly_coeffs[:,1]
+#         coeff_z = poly_coeffs[:,2]
+
+#         for i,t in enumerate(time_setpoints):
+#             seg_idx = min(max(np.searchsorted(self.times, t)-1,0), len(coeff_x) - 1)
+#             # Determine the x,y and z position reference points at every refernce time
+#             x_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[0],coeff_x[seg_idx*6:(seg_idx+1)*6])
+#             y_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[0],coeff_y[seg_idx*6:(seg_idx+1)*6])
+#             z_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[0],coeff_z[seg_idx*6:(seg_idx+1)*6])
+#             # Determine the x,y and z velocities at every reference time
+#             v_x_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[1],coeff_x[seg_idx*6:(seg_idx+1)*6])
+#             v_y_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[1],coeff_y[seg_idx*6:(seg_idx+1)*6])
+#             v_z_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[1],coeff_z[seg_idx*6:(seg_idx+1)*6])
+#             # Determine the x,y and z accelerations at every reference time
+#             a_x_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[2],coeff_x[seg_idx*6:(seg_idx+1)*6])
+#             a_y_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[2],coeff_y[seg_idx*6:(seg_idx+1)*6])
+#             a_z_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[2],coeff_z[seg_idx*6:(seg_idx+1)*6])
+
+#         yaw_vals = np.zeros((self.disc_steps*len(self.times),1))
+#         trajectory_setpoints = np.hstack((x_vals, y_vals, z_vals, yaw_vals))
+
+#         self.plot(path_waypoints, trajectory_setpoints)
+            
+#         # Find the maximum absolute velocity during the segment
+#         vel_max = np.max(np.sqrt(v_x_vals**2 + v_y_vals**2 + v_z_vals**2))
+#         vel_mean = np.mean(np.sqrt(v_x_vals**2 + v_y_vals**2 + v_z_vals**2))
+#         acc_max = np.max(np.sqrt(a_x_vals**2 + a_y_vals**2 + a_z_vals**2))
+#         acc_mean = np.mean(np.sqrt(a_x_vals**2 + a_y_vals**2 + a_z_vals**2))
+
+#         print("Maximum flight speed: " + str(vel_max))
+#         print("Average flight speed: " + str(vel_mean))
+#         print("Average flight acceleration: " + str(acc_mean))
+#         print("Maximum flight acceleration: " + str(acc_max))
+        
+#         # Check that it is less than an upper limit velocity v_lim
+#         assert vel_max <= self.vel_lim, "The drone velocity exceeds the limit velocity : " + str(vel_max) + " m/s"
+#         assert acc_max <= self.acc_lim, "The drone acceleration exceeds the limit acceleration : " + str(acc_max) + " m/s²"
+
+#         # ---------------------------------------------------------------------------------------------------- ##
+
+#         return trajectory_setpoints, time_setpoints

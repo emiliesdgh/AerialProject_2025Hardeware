@@ -35,19 +35,20 @@ class GatesMap:
         
     def set_gates(self, start, end, gate1, gate2, gate3, gate4):
         # Set the gates in the occupancy grid
-        self.start = start * np.array([100,100,100,1,100])
-        self.end = end * np.array([100,100,100,1,100])
+        self.start = (start+np.array([1, 1, 1, 0, 0])) * np.array([100,100,100,1,100])
+        self.end = (end+np.array([1, 1, 1, 0, 0])) * np.array([100,100,100,1,100])
 
-        self.gate1 = gate1 * np.array([100,100,100,1,100])
-        self.gate2 = gate2 * np.array([100,100,100,1,100])
-        self.gate3 = gate3 * np.array([100,100,100,1,100])
-        self.gate4 = gate4 * np.array([100,100,100,1,100])
+        self.gate1 = (gate1+np.array([1, 1, 1, 0, 0])) * np.array([100,100,100,1,100])
+        self.gate2 = (gate2+np.array([1, 1, 1, 0, 0])) * np.array([100,100,100,1,100])
+        self.gate3 = (gate3+np.array([1, 1, 1, 0, 0])) * np.array([100,100,100,1,100])
+        self.gate4 = (gate4+np.array([1, 1, 1, 0, 0])) * np.array([100,100,100,1,100])
 
         self.waypoints = [self.start[:3], self.gate1[:3], self.gate2[:3], self.gate3[:3], self.gate4[:3], self.end[:3]]
+        print("Waypoints set:", self.waypoints)
 
     def set_optimal_path(self, path):
         # Set the optimal path
-        self.optimal_path = path*100
+        self.optimal_path = (path+1)*100
 
 ###########################
 ### === Map display === ###
