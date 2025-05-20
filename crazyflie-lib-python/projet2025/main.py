@@ -24,12 +24,25 @@ def createPoints():
 
     waypoints = (start[:3], gate1[:3], gate2[:3], gate3[:3], gate4[:3], end[:3])
     gate_positions = (gate1, gate2, gate3, gate4)
+    setpoints = [
+    [0.5, -0.15, 1.2],
+    [1.7, 0.25, 1.15],
+    [0.8, 1.1, 0.8],
+    [-0.9, 0.2, 1.2],
+    [0.5, -0.15, 1.2],
+    [1.7, 0.25, 1.15],
+    [0.8, 1.1, 0.8],
+    [-0.9, 0.2, 1.2],
+    [0, 0, 1],  # If this is meant to be another setpoint
+    [0, 0, 0.1]  # If this is meant to be another setpoint
+]
 
+    yaw_setpoints = [-np.pi/2,0, np.pi/2, np.pi]
     # Create the motion planner
-    motion_planner = MP(waypoints, gate_positions)
+    motion_planner = MP(setpoints, gate_positions)
 
     # # # print the waypoints
-    # # print("Waypoints:", waypoints) 
+    # # print("Waqypoints:", waypoints) 
     # # # print the interpolated trajectory setpoints
     # # print("Interpolated trajectory setpoints:", motion_planner.trajectory_setpoints)
     return motion_planner

@@ -32,14 +32,13 @@ class DroneInterface:
         log_conf.add_variable('kalman.stateX', 'float')
         log_conf.add_variable('kalman.stateY', 'float')
         log_conf.add_variable('kalman.stateZ', 'float')
-        log_conf.add_variable('kalman.stateYaw', 'float')
 
         def log_callback(timestamp, data, logconf):
             sensor_data = {
                 'x_global': data['kalman.stateX'],
                 'y_global': data['kalman.stateY'],
                 'z_global': data['kalman.stateZ'],
-                'yaw': np.deg2rad(data['kalman.stateYaw'])
+                'yaw': 0.0
             }
             self.current_sensor_data = sensor_data
             target = self.drone.update(sensor_data)
