@@ -34,7 +34,7 @@ def createPoints():
     [0.8, 1.1, 0.8],
     [-0.9, 0.2, 1.2],
     [0, 0, 1],  # If this is meant to be another setpoint
-    [0, 0, 0.1]  # If this is meant to be another setpoint
+    [0, 0, 0.2]  # If this is meant to be another setpoint
 ]
 
     yaw_setpoints = [-np.pi/2,0, np.pi/2, np.pi]

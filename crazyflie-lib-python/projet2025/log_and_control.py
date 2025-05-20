@@ -44,6 +44,7 @@ class DroneInterface:
             target = self.drone.update(sensor_data)
             self.cf.commander.send_position_setpoint(*target)
 
+        time.sleep(1)
         log_conf.data_received_cb.add_callback(log_callback)
         self.cf.log.add_config(log_conf)
         log_conf.start()

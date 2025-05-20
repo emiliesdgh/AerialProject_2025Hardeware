@@ -4,7 +4,7 @@ import numpy as np
 
 # === Constants ===
 TARGET_Z = 1.35
-THRESHOLD = 0.6 # ACCEPTED DISTANCE TO POINT
+THRESHOLD = 0.8 # ACCEPTED DISTANCE TO POINT
 
 class Drone:
     def __init__(self):
