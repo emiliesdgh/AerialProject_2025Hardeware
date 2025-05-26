@@ -3,25 +3,27 @@ import numpy as np
 
 
 # === Constants ===
-TARGET_Z = 1.35
+TARGET_Z = 1.35 #DEFAULT HOVER HEIGHT
 THRESHOLD = 0.75 # ACCEPTED DISTANCE TO POINT
 
 class Drone:
     def __init__(self):
         self._state = "takeoff"
-        self.target = None
+        self.target = None # Current target
         self.target_list = []
         self.base = [1, 4, TARGET_Z, 0]
 
         self._sensor_data = None
 
     def set_trajectory(self, points):
+        """ Function to enter the list of point to use"""
         if isinstance(points, np.ndarray):
             self.target_list = points.tolist()
         else:
             self.target_list = points
 
     def update(self, sensor_data):
+        """ Main update loop function, returns current target"""
         self._sensor_data = sensor_data
 
         if self._state == "takeoff":
@@ -34,6 +36,7 @@ class Drone:
         return self.target
 
     def _takeoff(self):
+        """ Function called during takeoff mode"""
         target_z = 0.75
         self.target = [
             self._sensor_data['x_global'],
@@ -44,7 +47,7 @@ class Drone:
         if self._target_reached(0.5):
             print(type(self.target_list))
             if self.target_list:
-                self._state = "run"
+                self._state = "run" #if take off finished, change state
 
     def feed_path(self, points):
         """Feed a list of [x, y, z, yaw] waypoints to follow after takeoff."""
@@ -53,9 +56,11 @@ class Drone:
             self._state = "run"
 
     def _run(self):
+        """ Function for the run mode"""
         self._follow_path(THRESHOLD)
 
     def _follow_path(self, threshold):
+        """ State machine to decide what is the next point."""
         if not self.target_list:
             return True
         self.target = self.target_list[0]
@@ -68,6 +73,7 @@ class Drone:
         return False
 
     def _target_reached(self, threshold=0.1, check_yaw=False, yaw_threshold=0.1):
+        """ Function to decide if the traget is reached"""
         dx = self._sensor_data['x_global'] - self.target[0]
         dy = self._sensor_data['y_global'] - self.target[1]
         dz = self._sensor_data['z_global'] - self.target[2]

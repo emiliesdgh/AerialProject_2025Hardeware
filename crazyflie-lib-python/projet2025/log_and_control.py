@@ -18,21 +18,24 @@ class DroneInterface:
         self.drone = drone_instance
         self.current_sensor_data = None
 
-        self.cf.connected.add_callback(self._connected)
-        self.cf.disconnected.add_callback(self._disconnected)
+        self.cf.connected.add_callback(self._connected) # add callback function on connect event
+        self.cf.disconnected.add_callback(self._disconnected) # add callback function on disconnect event
         print(f"Connecting to {uri}...")
         self.cf.open_link(uri)
 
-        keyboard.Listener(on_press=self._on_key_press).start()
+        keyboard.Listener(on_press=self._on_key_press).start()  #listen on keyboard for input
 
     def _connected(self, link_uri):
         print(f"Connected to {link_uri}")
 
+        #subscribing to position
         log_conf = LogConfig(name='Position', period_in_ms=50)
         log_conf.add_variable('kalman.stateX', 'float')
         log_conf.add_variable('kalman.stateY', 'float')
         log_conf.add_variable('kalman.stateZ', 'float')
 
+
+        #registering the function to call when we get an answer
         def log_callback(timestamp, data, logconf):
             sensor_data = {
                 'x_global': data['kalman.stateX'],
@@ -58,6 +61,7 @@ class DroneInterface:
         time.sleep(2)
 
     def _on_key_press(self, key):
+        """Function fo emergency stop"""
         try:
             if key.char == 'q':
                 print("Emergency stop triggered!")
@@ -71,6 +75,7 @@ class DroneInterface:
         print("Disconnected.")
 
 def run_drone(uri, drone):
+    """wrapper to start everything"""
     cflib.crtp.init_drivers()
     interface = DroneInterface(uri, drone)
     while True:
